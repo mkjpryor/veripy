@@ -1,5 +1,6 @@
 """
-This module provides some existential types
+This module provides some structural types, i.e. types that are able to verify that an
+object has a particular structure
 
 @author: Matt Pryor <mkjpryor@gmail.com>
 """
@@ -36,7 +37,13 @@ class TupleMeta(TypeMeta):
             tupletypes.append(t)
         if not tupletypes:
             raise TypeError('Cannot create an unparameterised tuple')
-        cls = self.__class__(self.__name__, self.__bases__, dict(self.__dict__))
+        def typenames():
+            for t in tupletypes:
+                yield t.__name__
+            if not strict:
+                yield "..." 
+        name = '%s[%s]' % (self.__name__, ', '.join(typenames()))
+        cls = self.__class__(name, self.__bases__, dict(self.__dict__))
         cls.__tupletypes__ = tuple(tupletypes)
         cls.__strict__ = strict
         return cls
@@ -80,14 +87,6 @@ class TupleMeta(TypeMeta):
             if not cls.__strict__ or len(self.__tupletypes__) != len(cls.__tupletypes__):
                 return False
         return all(issubclass(t1, t2) for t1, t2 in zip(cls.__tupletypes__, self.__tupletypes__))
-    
-    def __repr__(self):
-        def types():
-            for t in (self.__tupletypes__ or ()):
-                yield t.__name__
-            if not self.__strict__:
-                yield "..." 
-        return 'Tuple[%s]' % ', '.join(types())
 
 
 class Tuple(metaclass = TupleMeta):
@@ -129,7 +128,13 @@ class RecordMeta(TypeMeta):
             recordtypes[k] = t
         if not recordtypes:
             raise TypeError('Cannot create an unparameterised record')
-        cls = self.__class__(self.__name__, self.__bases__, dict(self.__dict__))
+        def typenames():
+            for k, t in recordtypes.items():
+                yield "%s: %s" % (k, t.__name__ )
+            if not strict:
+                yield "..." 
+        name = '%s[%s]' % (self.__name__, ', '.join(typenames()))
+        cls = self.__class__(name, self.__bases__, dict(self.__dict__))
         cls.__recordtypes__ = MappingProxyType(recordtypes)
         cls.__strict__ = strict
         return cls
@@ -179,14 +184,6 @@ class RecordMeta(TypeMeta):
             return all(issubclass(cls.__recordtypes__[k], t) for k, t in self.__recordtypes__.items())
         except LookupError:
             return False
-    
-    def __repr__(self):
-        def types():
-            for k, t in (self.__recordtypes__ or {}).items():
-                yield "%s: %s" % (k, t.__name__ )
-            if not self.__strict__:
-                yield "..." 
-        return 'Record[%s]' % ', '.join(types())
 
 
 class Record(metaclass = RecordMeta):
@@ -225,7 +222,10 @@ class HasAttrsMeta(TypeMeta):
             attrtypes[k] = t
         if not attrtypes:
             raise TypeError('Cannot create an unparameterised structural type')
-        cls = self.__class__(self.__name__, self.__bases__, dict(self.__dict__))
+        name = '%s[%s]' % (
+            self.__name__, ', '.join("%s: %s" % (k, t.__name__) for k, t in attrtypes.items())
+        )
+        cls = self.__class__(name, self.__bases__, dict(self.__dict__))
         cls.__attrtypes__ = MappingProxyType(attrtypes)
         return cls
     
@@ -258,11 +258,6 @@ class HasAttrsMeta(TypeMeta):
             return all(issubclass(cls.__attrtypes__[k], t) for k, t in self.__attrtypes__.items())
         except LookupError:
             return False
-    
-    def __repr__(self):
-        return 'HasAttrs[%s]' % ', '.join(
-            "%s: %s" % (k, t.__name__ ) for k, t in (self.__attrtypes__ or {}).items()
-        )
 
 
 class HasAttrs(metaclass = HasAttrsMeta):
@@ -299,8 +294,13 @@ class CallableMeta(TypeMeta):
         if returntype is None:
             returntype = type(None)
         if not isinstance(returntype, type):
-            raise TypeError('Cannot parameterise callable with non-type argument') 
-        cls = self.__class__(self.__name__, self.__bases__, dict(self.__dict__))
+            raise TypeError('Cannot parameterise callable with non-type argument')
+        def typenames():
+            for t in argtypes:
+                yield t.__name__
+            yield returntype.__name__
+        name = '%s[%s]' % (self.__name__, ', '.join(typenames()))
+        cls = self.__class__(name, self.__bases__, dict(self.__dict__))
         cls.__argtypes__ = tuple(argtypes)
         cls.__returntype__ = returntype
         return cls
@@ -376,16 +376,6 @@ class CallableMeta(TypeMeta):
         # Each argument type must be contravariant (e.g. less restrictive) with the corresponding
         # type from self
         return all(issubclass(t1, t2) for t1, t2 in zip(self.__argtypes__, cls.__argtypes__))
-    
-    def __repr__(self):
-        def types():
-            for t in (self.__argtypes__ or ()):
-                yield t.__name__
-            if self.__returntype__ is None or self.__returntype__ is type(None):
-                yield "None"
-            else:
-                yield self.__returntype__.__name__
-        return 'Callable[%s]' % ', '.join(types())
 
 
 class Callable(metaclass = CallableMeta):

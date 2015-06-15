@@ -13,10 +13,8 @@ class TypeMeta(type):
     Base class for typing metaclasses providing common functionality
     """
     
-    @property
-    def __name__(self):
-        # Make sure the name of a class is the same as its string representation
-        return repr(self)
+    def __init__(self, *args, **kwargs):
+        pass
 
 
 class UnionMeta(TypeMeta):
@@ -64,7 +62,8 @@ class UnionMeta(TypeMeta):
         # If there is only one type left, that is not a union
         if len(uniontypes) == 1:
             return next(iter(uniontypes))
-        cls = self.__class__(self.__name__, self.__bases__, dict(self.__dict__))
+        name = '%s[%s]' % (self.__name__, ', '.join(t.__name__ for t in uniontypes))
+        cls = self.__class__(name, self.__bases__, dict(self.__dict__))
         cls.__uniontypes__ = frozenset(uniontypes)
         return cls
     
@@ -95,9 +94,6 @@ class UnionMeta(TypeMeta):
             # If cls is not another union, then it is a subclass of this union if it is a subclass
             # of one of our union types
             return any(issubclass(cls, t) for t in self.__uniontypes__)
-    
-    def __repr__(self):
-        return 'Union[%s]' % ', '.join(t.__name__ for t in (self.__uniontypes__ or ()))
 
 
 class Union(metaclass = UnionMeta):
@@ -153,7 +149,8 @@ class IntersectionMeta(TypeMeta):
         # If there is only one type left, that is not a intersection
         if len(intersecttypes) == 1:
             return next(iter(intersecttypes))
-        cls = self.__class__(self.__name__, self.__bases__, dict(self.__dict__))
+        name = '%s[%s]' % (self.__name__, ', '.join(t.__name__ for t in intersecttypes))
+        cls = self.__class__(name, self.__bases__, dict(self.__dict__))
         cls.__intersecttypes__ = frozenset(intersecttypes)
         return cls
     
@@ -188,9 +185,6 @@ class IntersectionMeta(TypeMeta):
             # If cls is not another intersection, then it is a subclass of this intersection
             # if it is a subclass of all of our intersection types
             return all(issubclass(cls, t) for t in self.__intersecttypes__)
-    
-    def __repr__(self):
-        return 'Intersection[%s]' % ', '.join(t.__name__ for t in (self.__intersecttypes__ or ()))
 
 
 class Intersection(metaclass = IntersectionMeta):
