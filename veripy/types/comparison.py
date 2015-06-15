@@ -44,7 +44,7 @@ class SatisfiesMeta(TypeMeta):
         return self.__predicate__(instance)
     
     def __subclasscheck__(self, cls):
-        raise TypeError('Cannot use satisfies types for subclass checking')
+        return False
 
 
 class Satisfies(metaclass = SatisfiesMeta):
@@ -89,7 +89,7 @@ class ComparisonMeta(TypeMeta):
         return self.__operator__(instance, self.__value__)
     
     def __subclasscheck__(self, cls):
-        raise TypeError('Cannot use comparison types for subclass checking')
+        return False
 
 
 class Eq(metaclass = ComparisonMeta, operator = operator.eq):
