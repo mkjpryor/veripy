@@ -5,9 +5,53 @@ an instance check
 @author: Matt Pryor <mkjpryor@gmail.com>
 """
 
-import operator
+import operator, collections
 
 from ..types import TypeMeta
+from .structural import Callable
+
+
+# Type for a predicate
+Predicate = Callable[object, bool]
+
+
+class SatisfiesMeta(TypeMeta):
+    """
+    Metaclass for Satisfies
+    """
+    
+    def __getitem__(self, pred):
+        if self.__predicate__:
+            raise TypeError('Cannot re-parameterise an existing satisfies type')
+        if not isinstance(pred, Predicate):
+            raise TypeError('Satisfies expects a single predicate')
+        name = '%s[...]' % self.__name__
+        cls = self.__class__(name, self.__bases__, dict(self.__dict__))
+        cls.__predicate__ = pred
+        return cls
+    
+    def __eq__(self, other):
+        if not isinstance(other, SatisfiesMeta):
+            return NotImplemented
+        return self.__predicate__ == other.__predicate__
+    
+    def __hash__(self):
+        return hash(self.__predicate__)
+    
+    def __instancecheck__(self, instance):
+        if not self.__predicate__:
+            raise TypeError('Cannot use unparameterised satisfies type')
+        return self.__predicate__(instance)
+    
+    def __subclasscheck__(self, cls):
+        raise TypeError('Cannot use satisfies types for subclass checking')
+
+
+class Satisfies(metaclass = SatisfiesMeta):
+    """
+    Parameterisable type that tests if an object satisfies a predicate as an isinstance check
+    """
+    __predicate__ = None
 
 
 class ComparisonMeta(TypeMeta):
@@ -51,6 +95,15 @@ class ComparisonMeta(TypeMeta):
 class Eq(metaclass = ComparisonMeta, operator = operator.eq):
     """
     Parameterisable type for equality testing, i.e. isinstance(x, Eq[10]) is equivalent to x == 10
+    """
+    __hasvalue__ = False
+    __value__    = None
+
+
+class Ne(metaclass = ComparisonMeta, operator = operator.ne):
+    """
+    Parameterisable type for non-equality testing, i.e. isinstance(x, Ne[10]) is equivalent
+    to x != 10
     """
     __hasvalue__ = False
     __value__    = None
