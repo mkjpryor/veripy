@@ -55,3 +55,10 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Eclipse files
+.project
+.pydevproject
+
+# Test files
+test*.py
